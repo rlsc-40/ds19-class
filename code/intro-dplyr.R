@@ -116,3 +116,22 @@ head(xyz) # just shows first 6 rows
 # only creating these variables in the dataframe that is currently being used 
 # will not modify .csv unless you "write to..."
 
+# add a column to gapminder that gives full GDP per continent, grouped by country
+gdp_per_continent <- gapminder %>% 
+  mutate(total_gdp = gdpPercap * pop) %>% 
+  group_by(continent) %>% 
+  summarise(cont_gdp = sum(total_gdp))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
