@@ -69,4 +69,50 @@ table(Europe_sub$country)
 Africa_table <- table(Africa_subset$country)
 View(Africa_table)
 
+# working with group_by() & summarize()
+# group_by subsets within main dataframe; treats as subsets w/o having to actually subset
+str(gapminder %>% group_by(continent))
+
+# summarize mean gdp per continent
+gdp_continent <- gapminder %>% 
+  group_by(continent) %>% 
+  summarise(mean_gdp = mean(gdpPercap), mean_lifeExp = mean(lifeExp))
+View(gdp_continent)
+
+# just a quick mean for all of the countries, could add other vars, as well - will not add to dataset
+
+library(ggplot2)
+summary_plot <- gdp_continent %>% 
+  ggplot(aes(x = mean_gdp, y = mean_lifeExp)) +
+  geom_point(stat = "identity") +
+  theme_bw()
+summary_plot
+
+# calculate mean pop for all continents
+mean_pop <- gapminder %>% 
+  group_by(continent) %>% 
+  summarise(mean_population = mean(pop))
+View(mean_pop)
+mean_pop
+
+# count () and n ()
+gapminder %>% 
+  filter(year == 2002) %>% 
+  count(continent, sort = TRUE)
+
+# want to calculate the s.e. for each continent but don't know the number of obsv, use "n"
+gapminder %>% 
+  group_by(continent) %>% 
+  summarise(se = sd(lifeExp)/sqrt(n()))
+
+# mutate() is my friend - used to create a brand new column to add to dataframe
+xy <- data.frame(x = rnorm(100), # this just generated 100 random numbers
+                 y = rnorm(100))
+head(xy)
+xyz <- xy %>% 
+  mutate(z = x * y)
+head(xyz) # just shows first 6 rows
+
+# only creating these variables in the dataframe that is currently being used 
+# will not modify .csv unless you "write to..."
 
