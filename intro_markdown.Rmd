@@ -1,0 +1,69 @@
+---
+title: "Intro_RMarkdown"
+author: Rebecca
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+install.packages("DT")
+library(DT)
+install.packages("ggthemes")
+library(ggthemes)
+library(extrafont)
+library(plyr)
+library(scales)
+```
+
+## Purpose
+Demonstrate how to use RMarkdown using Biketown data. We will make a few plots, show some code, and play around with formatting in RMarkdown.
+
+``` {r biketown, include = F}
+# this is where we would say, "Don't show this code, just show the output"
+# clean up the data, generate plot, write something descriptive
+# anything in this box shows (even comments) unless we have the echo = F; still shows the results in the doc
+# include = F means you don't show anything, not code, not results
+# eval = F would be where you want to show the code but not run and show results
+# results = "hide" - shows code but not results
+bike_1807 <- read.csv("data/biketown/2018_07.csv", stringsAsFactors = F)
+str(bike_1807)
+
+# mean <- mean(bike_1807$Distance_Miles)
+mean_dist <- bike_1807 %>% 
+  group_by(PaymentPlan) %>% 
+  summarise(mean_miles = mean(Distance_Miles))
+mean_dist
+
+md_fig <- mean_dist %>% 
+  ggplot(aes(x = PaymentPlan, y = mean_miles, fill = PaymentPlan)) + 
+  geom_bar(stat = "identity")
+# fill is how to make it colored; can customize via more in-depth exploration
+md_fig
+
+#Multple_Rental
+mean_dist2 <- bike_1807 %>% 
+  group_by(PaymentPlan, MultipleRental) %>% 
+  summarise(mean_miles = mean(Distance_Miles))
+mean_dist2
+
+md_fig2 <- mean_dist2 %>% 
+  ggplot(aes(x = PaymentPlan, y = mean_miles, fill = MultipleRental)) + 
+  geom_bar(stat = "identity")
+# fill is how to make it colored; can customize via more in-depth exploration
+md_fig2
+
+```
+
+``` {r md_fig, echo = F}
+md_fig
+```
+
+```{r mean_dist table, echo = F}
+datatable(mean_dist, options = list(
+  pagelength = 15),
+  caption = 'Table 1: Table of values'
+)
+```
