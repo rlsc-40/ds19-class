@@ -1,0 +1,233 @@
+---
+title: "Split-Apply_Combine"
+author: "rlsc-40"
+date: "4/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Joe wonders if some commuters are more weather-resistant than others
+library(lubridate)
+library(ggplot2)
+install.packages("modelr")
+library(modelr)
+library(purrr)
+library(broom)
+library(dplyr)
+library(tidyr)
+```
+
+```{r init}
+getwd()
+
+# start typing data/ and then tab to see the list of tiles in the data folder
+"data/Hawthorne Tilikum Steel daily bike counts 073118.xlsx"
+
+# can change working directory in the "more" setting in the bottom, right window
+
+```
+## Explore and model bike counts on 3 PDX bridges
+```{r load data}
+source("code/load_counts_R.R")
+```
+``` {r join the two data sources}
+# use dplyr for joins
+# anti_join shows what is missing between two tables that contain the same info (good for qa/qc)
+# semi_join good for getting everything that matches between two tables
+
+bikecount_wx <- bikecounts %>% 
+  left_join(weather, by = c("date" = "DATE")) %>% 
+  select(date, bridge, total, TMIN, TMAX, PRCP)         
+```
+`dplyr` joins are great! Left join above returns each row in bikecounts (left) with each matching weather row (right), binding the weather columns by date. For more, check out this tutorial: https://mikoontz.github.io/data-carpentry-week/lesson_joins.html.
+
+```{r explore data graphically}
+# ggplot(bikecount_wx, aes(x = date, y = total, 
+#        group = bridge, color = bridge)) + 
+#   geom_line() + facet_wrap(bikecount_wx$bridge)
+
+# This way creates facets 
+# bikecount_wx %>% ggplot(aes(x = date, y = total, 
+#        group = bridge, color = bridge)) + 
+#   geom_line() + facet_wrap(bridge ~ .)
+# the " ~ ." is on the cheatsheet
+
+# this way stacks the facets, looks better for current plot, have limited the y axis
+bikecount_wx %>% ggplot(aes(x = date, y = total, 
+       group = bridge, color = bridge)) + 
+  geom_line() + facet_grid(bridge ~ .) + ylim(c(0, 10000))
+# can change the setting, can get the plots to show up in the bottom right. But will show up when knitted.
+```
+
+``` {r explore summary stats}
+# average daily count by bridge
+bikecount_wx %>% 
+  group_by(bridge) %>% 
+  summarise(avg_daily_counts = mean(total))
+
+# Average monthly by bridge
+bikecount_wx %>% 
+  group_by(bridge, month(date), year(date)) %>% 
+  summarise(avg_monthly_counts = mean(total)) %>% 
+  View()
+
+# Daily average by month all time by bridge
+avg_monthly <- bikecount_wx %>% 
+  group_by(bridge, month = month(date, label = T)) %>% 
+  summarise(avg_monthly_counts = mean(total)) %>% 
+  as.data.frame() # doing this to correct the odd structure of avg_monthly
+str(avg_monthly)
+
+ggplot(avg_monthly, aes(x = month, 
+                        y = avg_monthly_counts,
+                        color = bridge)) +
+  geom_point(size = 2)
+```
+
+## Fitting models in R
+
+```{r model fitting}
+# models return list objects describing fit
+fit <- lm(total ~ TMIN + TMAX + PRCP + bridge, 
+          data = bikecount_wx) 
+# base R for fitting linear model: lm(dependent ~ predictors, data = dataframe)
+str(fit)
+# lots of detail, but not super accessible
+summary(fit)
+# summary table of regression results
+plot(fit)
+# a few summary plots to show us the fit in base R
+fit2 <- lm(log(total) ~ TMIN + TMAX + PRCP + bridge, 
+          data = bikecount_wx)
+summary(fit2)
+plot(fit2)
+
+# not stored, but piped to summary; below is the regression stored as fit_poly, which can be graphed
+lm(total ~ TMIN + TMAX + I(TMAX^2) + PRCP + bridge, 
+          data = bikecount_wx) %>% summary() 
+# I tells it to ignore whatever I'm doing, just use transformed variable.
+
+fit_poly <- lm(total ~ TMIN + TMAX + I(TMAX^2) + PRCP + bridge, 
+          data = bikecount_wx)
+
+summary(fit_poly)
+
+coef(fit_poly) # could access coefs here by name or position
+f <- function(x) {198 * x + -0.99 * x^2} # from regression result
+p <- ggplot(data = data.frame(x = 0), # empty data frame
+            mapping = aes(x = x))
+
+p + stat_function(fun = f, color = "magenta", size = 1) +
+  xlim(0, 110) + xlab("Deg F") + ylab("Count")
+
+## 
+# fit3 <- dpois()
+```
+```{r modelr sneak peek}
+bikecount_wx <- bikecount_wx %>% 
+  add_predictions(fit_poly) %>% 
+  add_residuals(fit_poly) %>% 
+  mutate(pred = pred, resid = resid)
+head(bikecount_wx)
+
+ggplot() + 
+  geom_line(data = bikecount_wx, aes(x = date, y = total), 
+            color = "salmon") +
+  geom_line(data = bikecount_wx, aes(x = date, y = pred),
+            color = "blue") +
+  facet_grid(bridge ~ .) +
+  ylim(c(0, 10000)) # constrains axis scales
+
+ggplot() + 
+  geom_line(data = bikecount_wx, aes(x = date, y = total), 
+            color = "salmon") +
+  geom_line(data = bikecount_wx, aes(x = date, y = pred),
+            color = "blue") +
+  facet_grid(bridge ~ ., scales = "free") # removes constraints on scales
+```
+```{r split-apply-combine}
+# this
+bw_nested <- bikecount_wx %>% 
+  group_by(bridge) %>% 
+  nest()
+str(bw_nested)
+View(bw_nested) # each bridge now has a list of all of its data
+# can now easily apply functions to the data, instead of having to group by bridge each time. 
+
+# fit to single bridge
+lm(total ~ TMIN + TMAX + PRCP, 
+          data = bw_nested[[1, "data"]]) %>% 
+  summary()
+# to check:
+bw_nested[1]
+
+lm(total ~ TMIN + TMAX + PRCP, 
+          data = bw_nested[[2, "data"]]) %>% 
+  summary()
+
+# fit to all three bridges
+fit_func <- function(df) {
+  lm(total ~ TMIN + TMAX + PRCP, 
+          data = df)
+}
+# one at a time via function
+fit_func(bw_nested[[1, "data"]])
+
+# two at a time!
+fits <- purrr::map(bw_nested$data[1:2], 
+                   fit_func)
+
+fits # shows results from each of the two bridges
+
+str(fits) # shows list of two
+
+# threee at a time!
+bw_nested <- bw_nested %>% 
+  mutate(fit = purrr::map(data, fit_func), 
+         tidy = purrr::map(fit, tidy), 
+         glance = purrr::map(fit, glance))
+head(bw_nested)
+# not comprehensible...see below
+
+# broom is able to pick out what we want from the prior dataframe, which was incomprehensible
+broom::tidy(bw_nested$fit[[1]])
+
+# unpack for all 3
+bw_nested %>% 
+  unnest(glance) %>% 
+  arrange(desc(r.squared))
+
+bw_nested %>% 
+  select(bridge, tidy) %>% 
+  unnest(tidy) %>% 
+  arrange(term, estimate, bridge)
+# I honestly have no idea how he got here.
+
+# Let's make it more relative
+fit_func2 <- function(df) {
+  lm(log(total) ~ TMIN + TMAX + PRCP, 
+          data = df)
+}
+
+bw_nested <- bikecount_wx %>% 
+  group_by(bridge) %>% 
+  nest()
+
+bw_nested <- bw_nested %>% 
+  mutate(fit = purrr::map(data, fit_func2), 
+         tidy = purrr::map(fit, tidy), 
+         glance = purrr::map(fit, glance))
+
+bw_nested %>% 
+  select(bridge, tidy) %>% 
+  unnest(tidy) %>% 
+  arrange(term, estimate, bridge) %>% 
+  View()
+
+
+
+```
+
+
+

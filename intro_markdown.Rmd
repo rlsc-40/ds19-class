@@ -66,4 +66,5 @@ datatable(mean_dist, options = list(
   pagelength = 15),
   caption = 'Table 1: Table of values'
 )
+# this did not work
 ```

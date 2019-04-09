@@ -119,8 +119,10 @@ mdw_fig2
 # ggplot will assume continuous; if we are missing data, 
 # we will need to insert a break to signify where the data is missing
 # can add a baseline, add a block/rectangle to emphasize results
-
 ```
+
+
+
 
 
 
