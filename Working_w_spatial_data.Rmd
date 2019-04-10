@@ -16,7 +16,8 @@ install.packages("tidycensus")
 library(tidycensus)
 library(ggplot2)
 library(tidyr)
-
+if (!require(ggsn)) {install.packages("ggsn")}; library(ggsn)
+if (!require(mapview)) {install.packages("mapview")}; library(mapview)
 ```
 
 ## Working with spatial data in simple features
@@ -74,16 +75,143 @@ p + geom_sf(aes(fill = nonwhite)) +
 # Joe points out that we don't know how the breakpoints are being calculated.
 # could do scale_fill_gradient and set low and high as colors
 ?geom_sf
-p + geom_sf(aes(fill = med_inc)) + 
-  theme_minimal() # does not do much that we can tell
+# p + geom_sf(aes(fill = med_inc)) + 
+#   theme_minimal() # does not do much that we can tell
+p + geom_sf(aes(fill = med_inc), color = "lightgray") +
+  scale_fill_viridis_c() # yellow to blue
+# color changes the colors of the borders
+
+p + geom_sf(aes(fill = med_inc), color = "lightgray") +
+  scale_fill_viridis_c(option = "plasma", 
+                       direction = -1, # direction = -1 flips the color ramp
+                       trans = "sqrt") # transforms the data
+
+# p + geom_sf(aes(fill = med_inc), color = "lightgray") + blank() 
+# "blank" takes away the background & the axes
+
+# xlim and ylim allow us to zoom
+p + geom_sf(aes(fill = med_inc), color = "lightgray") +
+  coord_sf(datum = 2838) +
+  scale_fill_viridis_c(option = "plasma", 
+                       direction = -1) +
+  xlim(232.5e4, 234e4) +
+  ylim(205e3, 215e3)
+
+p + geom_sf(aes(fill = med_inc), color = "lightgray") +
+  scale_fill_viridis_c(option = "plasma", 
+                       direction = -1) +
+  blank() + 
+  ggsn::north(pdx_tracts_p, symbol = 3, scale = 0.15) +
+  # scale is in proportion to the bounding box
+  ggsn::scalebar(pdx_tracts_p, dist = 4, 
+                 dist_unit = "km", 
+                 transform = FALSE, 
+                 st.size = 3)
+
+# to share file, send the html file and then tell them to download and then open in a web browser;
+# will not show in, e.g., gmail
+  
 ```
 
 ```{r sptial analysis using BikeTown}
 source("code/fetch_biketown.R")
+outdir <- "data/biketown/"
 biketown <- get_data(start = "01/2018", 
                      end = "12/2018", 
                      outdir = "data/biketown/")
+# Get_data function has other options commented out; good to rerun libraries in case get_data needs them.
+# can look into spatial statistics, spatial clustering
+# stitch monthly files together for analysis
+biketown_2018 <- paste0(outdir, list.files(outdir)) %>% 
+  lapply(read.csv, stringsAsFactors = F) %>% 
+  bind_rows()
+# lapply does this read.csv(file, stringsAsFactors = F)
+head(biketown_2018)
+# for e..g, shapefiles, just use sf::read_sf()
+biketown <- biketown_2018 # assigned biketown_2018 to biketown for simplicity
+rm(biketown_2018) # to avoid confusion
+hubs_start_sf <- biketown %>% 
+  group_by(StartHub) %>% 
+  summarise(lat = mean(StartLatitude),
+            lng = mean(StartLongitude),
+            starts = n()) %>% # number of trip starts at each hub
+  filter(!is.na(lat) & !is.na(lng)) %>% # excludes where one is missing, but through double negative
+  st_as_sf(coords = c("lng", "lat"), # aggregrates our geom coord into one field; 
+           # needs to be in x, y form
+           crs = 4326, agr = "identity") # unclear what agr does!
+# st_buffer can help match a file that has slightly off geometries
+
+m1 <- mapview(hubs_start_sf, zcol = "starts", cex = "starts") # if basemap doesn't show, open in browser
+# to delete legend, ", legend = F"
+# "cex = ..." creates a relative size for the points
+# mapview is really to see a basic map version. If I want more control re: editing, use leaflet.
+  
+# This worked, but did not carry through to inner join.
+# hubs_end_sf <- biketown %>% 
+#   group_by(EndHub) %>% 
+#   summarise(lat = mean(EndLatitude),
+#             lng = mean(EndLongitude),
+#             ends = n()) %>% 
+#   filter(!is.na(lat) & !is.na(lng)) %>% 
+#   st_as_sf(coords = c("lng", "lat"), 
+#            crs = 4326, agr = "identity")
+  
+#Joe did in two steps because in the later step of joining, it did not want to join the hubs_end_sf:
+hubs_end <- biketown %>%
+  group_by(EndHub) %>%
+  summarise(lat = mean(EndLatitude),
+            lng = mean(EndLongitude),
+            ends = n())
+hubs_end_sf <- hubs_end %>%
+  filter(!is.na(lat) & !is.na(lng)) %>%
+  st_as_sf(coords = c("lng", "lat"),
+           crs = 4326, agr = "identity") # agr in this case could also be "constant"
+
+m2 <- mapview(hubs_end_sf, zcol = "ends", legend = T,
+        cex = "ends")
+sync(m1, m2) # shows the two maps side by side
+
+hubs_ratio_sf <- inner_join(hubs_start_sf, 
+                            hubs_end, 
+                            by = c("StartHub" =
+                                   "EndHub")) %>% 
+  mutate(starts_to_ends = starts / ends,
+         ends_to_starts = ends / starts)
+View(hubs_ratio_sf)
+m3 <- mapview(hubs_ratio_sf, zcol = "starts_to_ends",
+              cex = "starts_to_ends", legend = F)
+m4 <- mapview(hubs_ratio_sf, zcol = "ends_to_starts", # zcol sets the variable which will be colored
+              cex = "ends_to_starts", legend = F) # cex makes the dots proportional to one another
+sync(m3, m4)
 ```
+```{r spatial joins - BikeTown to Census}
+hubs_start_sf_p <- hubs_start_sf %>% 
+  st_transform(2838)
+
+hubs_start_sf_p <- hubs_start_sf_p %>% 
+  sf::st_join(pdx_tracts_p) # using a spatial join; default is left = T; can only do left or inner
+# no spatial ID, but joined based on where the hub fell within the spatial data in the Census tract
+
+# Joe is going to update us for the spatial join
+# pdx_tracts_p %>% 
+#   filter(st_intersects("geometry"), hubs_start_sf_p$geometry)
+```
+
+```{r saving files}
+# retains structure of dataframe, does a bit of compression over saving as a .csv
+# RDS is particularly helpful for others working in R
+saveRDS(pdx_tracts_raw, "data/pdx_tracts_raw.rds")
+
+# to be able to share with others, especially outside of R, write as .csv
+write.csv(biketown, "data/biketown_2018.csv", row.names = F)
+# if you don't specify row.names = F, first column would be the number of each row obsv (e.g., 1, 2)
+# note that this is 76 MB as a .csv, but as a .rds, it would be 11 MB!
+# write.table would save as text file
+# look into feather pkg to collaborate with a python user
+
+```
+
+
 
 
 

@@ -1,0 +1,116 @@
+---
+title: "Fun with APIs"
+author: "rlsc-40"
+date: "4/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# to really start customizing, knowing some javascript, CSS, and html will really help.  Yikes.
+# Zev Ross has good tutorials with shiny, leaflet
+# Dean Atali (sp?)
+# Jenny Bryan
+# Joe Chang talks available through RStudio website
+
+library(httr)
+library(jsonlite)
+library(dplyr)
+# earlier, we connected to an API through a wrapper (tidycensus)
+
+# can also connect more directly
+
+
+```
+
+```{r call in data from api}
+appid <- "xx"
+# DO NOT SAVE
+
+baseurl <- "http://developer.trimet.org/ws/v2/arrivals"
+locIDs <- "locIDs=5887,5889,5890,5892"
+
+call_1 <- paste(baseurl, "?",
+                locIDs, "&",
+                appid, sep = "")
+
+# look at example call in API documentation and that will determine symbology
+# in this case, the ? means a query, the & represents all of the locIDs I'm requesting
+# API documentation will typically tell you limits on calls, records, etc.
+
+call_1
+# this is the result: "http://developer.trimet.org/ws/v2/arrivals?locIDs=5887,5889,5890,5892&appID=3E72C293724DBB1B9E7223526"
+
+```
+
+```{r make call}
+# Make a GET request
+get_arrivals  <- httr::GET(call_1)
+http_status(get_arrivals)
+
+```
+```{r explore GET request}
+names(get_arrivals)
+# lists row names
+# we only got 10 records
+headers(get_arrivals)
+# Rlist pkg can help you unpack lists of lists
+
+
+parse_arrivals <- fromJSON(content(get_arrivals, "text"))
+# this is just putting the data from JSON into something more R-friendly
+
+# use double brackets to get the data out of lists of lists
+results <- parse_arrivals[["resultSet"]]
+# one more level to unpack
+arrivals <- results[["arrival"]]
+
+# this gets easier once we work more with this specific API
+head(arrivals)
+
+# this is the long way, but check to make sure there isn't already a package to pull data for x data source, e.g., Twitter, GTFS
+
+```
+
+# These are the four most common base R functions TL uses when looking at text.
+sub: provides an index of where the pattern occurs
+gsub: replaces all occurrences of pattern (logical)
+# perhaps better for alphanumeric
+
+grep: index of where pattern occurs
+grepl: replaces all occurrences of pattern (logical)
+# does this word exist in this particular string?  If true, replace (e.g.).
+
+```{r intro to regular expressions}
+# stringr is more robust when it comes to manipulating strings in the data
+# as discussed, stringr is okay, but python is better for text mining
+
+sub_example <- c("banana", "cat", "dog", "bagels")
+
+# find all hubs that aren't "community"
+biketown %>% 
+  filter(!grepl("community", ignore.case = T, StartHub))
+
+# should have worked, but is not. TL thinks that it's that we didn't treat our na's in a certain way.
+# biketown_stations <- biketown %>% 
+#    mutate(station.category = if_else(grepl("community", StartHub, ignore.case = T), "Community",
+#                                     if_else(is.na(StartHub), "Out of location", "Biketown Station")))
+
+biketown_stations <- biketown %>% 
+  mutate(station.category = if_else(grepl("community", StartHub, ignore.case = T),
+                                    "Community",
+                                    if_else(grepl(" ", StartHub, ignore.case = T), "BIKETOWN Station",
+                                    "Out of location")))
+
+# %>% function is in dplyr
+table(biketown_stations$station.category)  
+```
+
+
+
+
+
+
+
+
+

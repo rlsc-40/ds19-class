@@ -97,13 +97,13 @@ get_data(start, end, outdir = outdir)
   # for (u in urls) { # "u" is just a name, could be "x", etc.
   #   download.file(u, destfile = paste0(outdir, str_sub(u, -11))) #just pulls last 11 chars
   # }
-  # 2) as an apply with an in-line function
+  # 2) AS AN APPLY with an in-line function
 #   result <- lapply(urls, function (u) {
 #     download.file(u, destfile = paste0(outdir, str_sub(u, -11)))
 #   })
 # }
 # 
-# # 3) piping from lapply to lapply
+# # 3) PIPING from lapply to lapply
 # 
 # get_data <- function(start, end, 
 #                      base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
