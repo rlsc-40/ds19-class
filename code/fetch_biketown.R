@@ -81,49 +81,49 @@ get_data(start, end, outdir = outdir)
 # trying to rerun to figure out what is going on
 
 #trying a different way #2
-get_data <- function(start, end, 
-                     base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
-                     outdir="Users/rebecca/Desktop/DS19-class/ds19-class/data/biketown/") {
-  make_url <- function(date, base_url) {
-    url <- paste0(base_url, format(date, "%Y_%m"), ".csv")
-    return(url)
-  }
-  start_date <- lubridate::myd(start, truncated = 2)
-  end_date <- myd(end, truncated = 2)
-  date_range <- seq(start_date, end_date,by="months")
-  urls <- lapply(date_range, make_url, base_url=base_url)
+# get_data <- function(start, end, 
+#                      base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
+#                      outdir="Users/rebecca/Desktop/DS19-class/ds19-class/data/biketown/") {
+#   make_url <- function(date, base_url) {
+#     url <- paste0(base_url, format(date, "%Y_%m"), ".csv")
+#     return(url)
+#   }
+#   start_date <- lubridate::myd(start, truncated = 2)
+#   end_date <- myd(end, truncated = 2)
+#   date_range <- seq(start_date, end_date,by="months")
+#   urls <- lapply(date_range, make_url, base_url=base_url)
   
   # for loops can be easier for early development of code (a little more readable)
   # for (u in urls) { # "u" is just a name, could be "x", etc.
   #   download.file(u, destfile = paste0(outdir, str_sub(u, -11))) #just pulls last 11 chars
   # }
   # 2) as an apply with an in-line function
-  result <- lapply(urls, function (u) {
-    download.file(u, destfile = paste0(outdir, str_sub(u, -11)))
-  })
-}
-
-# 3) piping from lapply to lapply
-
-get_data <- function(start, end, 
-                     base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
-                     outdir="Users/rebecca/Desktop/DS19-class/ds19-class/data/biketown/") {
-  make_url <- function(date, base_url) {
-    url <- paste0(base_url, format(date, "%Y_%m"), ".csv")
-    return(url)
-  }
-  start_date <- lubridate::myd(start, truncated = 2)
-  end_date <- myd(end, truncated = 2)
-  date_range <- seq(start_date, end_date,by="months")
-  lapply(date_range, make_url, base_url=base_url) %>% 
-    # the pipe can only take the first function and apply it to the next one
-    # need to look into lapply
-   lapply(function (u) {download.file(u, destfile = paste0(outdir, str_sub(u, -11)))
-  })
-}
-start = "11/2018"
-end = "12/2018"
-# outdir = "Users/rebecca/Desktop/"
-outdir = "data/biketown/"
-
-get_data(start, end, outdir = outdir)
+#   result <- lapply(urls, function (u) {
+#     download.file(u, destfile = paste0(outdir, str_sub(u, -11)))
+#   })
+# }
+# 
+# # 3) piping from lapply to lapply
+# 
+# get_data <- function(start, end, 
+#                      base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
+#                      outdir="Users/rebecca/Desktop/DS19-class/ds19-class/data/biketown/") {
+#   make_url <- function(date, base_url) {
+#     url <- paste0(base_url, format(date, "%Y_%m"), ".csv")
+#     return(url)
+#   }
+#   start_date <- lubridate::myd(start, truncated = 2)
+#   end_date <- myd(end, truncated = 2)
+#   date_range <- seq(start_date, end_date,by="months")
+#   lapply(date_range, make_url, base_url=base_url) %>% 
+#     # the pipe can only take the first function and apply it to the next one
+#     # need to look into lapply
+#    lapply(function (u) {download.file(u, destfile = paste0(outdir, str_sub(u, -11)))
+#   })
+# }
+# start = "11/2018"
+# end = "12/2018"
+# # outdir = "Users/rebecca/Desktop/"
+# outdir = "data/biketown/"
+# 
+# get_data(start, end, outdir = outdir)

@@ -1,0 +1,89 @@
+---
+title: "working_w_spatial_data"
+author: "rlsc-40"
+date: "4/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+install.packages("sf")
+library(sf)
+install.packages("lwgeom")
+library(lwgeom)
+install.packages("tidycensus")
+library(tidycensus)
+library(ggplot2)
+library(tidyr)
+
+```
+
+## Working with spatial data in simple features
+```{r tidycensus load - using Census}
+# load api key for the session
+api <- "xx"
+census_api_key(api)
+# Tammy suggests assigning the key to an object, then deleting the line of code. I assigned to api.
+# DO NOT COMMIT UNTIL THE CODE IS CLEANED FROM API!
+v17 <- load_variables(2017, "acs5", cache = T)
+pdx_tracts_raw <- get_acs(geography = "tract", 
+                          year = 2017, 
+                          variables = c("B19013_001", # median income
+                                        "B03002_003", # white, non-Hispanic
+                                        "B01003_001"), # population
+                          state = "OR",
+                          county = c("Multnomah County"),
+                          geometry = TRUE
+                          ) %>% 
+  select(GEOID, variable, estimate, geometry) # did not bring in all of the vars, e.g., the tract names
+head(pdx_tracts_raw)
+# geometry is nested as a list in the geometry column
+# also, data comes in as one var/tract (long), meaning that we have three rows per obs.
+```
+```{r tidycensus tidying - using Census}
+pdx_tracts <- pdx_tracts_raw %>% 
+  spread(key = variable, estimate) %>% 
+  rename(med_inc = B19013_001, white = B03002_003, pop = B01003_001) %>% 
+  mutate(nonwhite = (pop - white)/pop, 
+         area = st_area(geometry))
+# spread is to make it long based on the variable; the estimate will be the value in the new column
+# by default, the area is returned in units (good for future reference!)
+# we are now converting the coordinates of pdx_tracts to a different coordinate reference system (crs)
+pdx_tracts_p <- st_transform(pdx_tracts, 
+                             crs = 2838) %>% 
+  mutate(area = st_area(geometry))
+View(pdx_tracts_p)
+# know that results can change based on projections
+plot(pdx_tracts_p)
+# sanity check; in this case, seems that dark blue is lower and pink is higher
+pdx_tracts_p %>% 
+  arrange(desc(area))
+# let's get rid of the super large tracts (could exclude by geoID, other ways)
+pdx_tracts_p <- pdx_tracts_p %>% 
+  filter(area < units::as_units(1e8, "m^2")) # if we don't include units, will force error
+
+plot(pdx_tracts_p)
+# now makes more sense - sans super large tracts
+
+p <- pdx_tracts_p %>% 
+  ggplot()
+p + geom_sf(aes(fill = med_inc))
+p + geom_sf(aes(fill = nonwhite)) +
+  scale_fill_distiller(direction = -1) # flips the color ramp; direction = 1 would be the opposite
+# Joe points out that we don't know how the breakpoints are being calculated.
+# could do scale_fill_gradient and set low and high as colors
+?geom_sf
+p + geom_sf(aes(fill = med_inc)) + 
+  theme_minimal() # does not do much that we can tell
+```
+
+```{r sptial analysis using BikeTown}
+source("code/fetch_biketown.R")
+biketown <- get_data(start = "01/2018", 
+                     end = "12/2018", 
+                     outdir = "data/biketown/")
+```
+
+
+
