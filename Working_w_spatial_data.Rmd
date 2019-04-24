@@ -8,22 +8,22 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
-install.packages("sf")
+# install.packages("sf")
 library(sf)
-install.packages("lwgeom")
+# install.packages("lwgeom")
 library(lwgeom)
-install.packages("tidycensus")
+# install.packages("tidycensus")
 library(tidycensus)
 library(ggplot2)
 library(tidyr)
-if (!require(ggsn)) {install.packages("ggsn")}; library(ggsn)
-if (!require(mapview)) {install.packages("mapview")}; library(mapview)
+# if (!require(ggsn)) {install.packages("ggsn")}; library(ggsn)
+# if (!require(mapview)) {install.packages("mapview")}; library(mapview)
 ```
 
 ## Working with spatial data in simple features
-```{r tidycensus load - using Census}
+```{r tidycensus load - using Census, cache=T}
 # load api key for the session
-api <- "xx"
+api <- "xx" # do this in the console so that it's not in the doc for knitting
 census_api_key(api)
 # Tammy suggests assigning the key to an object, then deleting the line of code. I assigned to api.
 # DO NOT COMMIT UNTIL THE CODE IS CLEANED FROM API!
